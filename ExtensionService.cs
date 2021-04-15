@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Qlik.Sse;
+using Google.Protobuf;
 
 namespace SSE_Example
 {
@@ -16,15 +17,22 @@ namespace SSE_Example
             _logger = logger;
         }
 
-
-        public async Task SumOfColumn(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context) {
+        public async Task SumOfColumn(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
+        {
+            _logger.LogInformation("SumOfColumn");
         }
 
-        public async Task SumOfRows(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context) {
+        public async Task SumOfRows(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
+        {
+            _logger.LogInformation("SumOfRows");
         }
 
-        public int GetFunctionId(ServerCallContext context) {
-            return -1;
+        private int GetFunctionId(ServerCallContext context)
+        {
+            var entry = context.RequestHeaders.SingleOrDefault(header => header.Key == "qlik-functionrequestheader-bin");
+            var header = new FunctionRequestHeader();
+            header.MergeFrom(new CodedInputStream(entry.ValueBytes));
+            return header.FunctionId;
         }
 
         public override async Task ExecuteFunction(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
