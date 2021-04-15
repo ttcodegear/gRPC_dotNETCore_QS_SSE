@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,7 +27,7 @@ namespace SSE_Example
             await foreach(var request in requestStream.ReadAllAsync()) {
               //for(int i = 0; i < int.Parse(request.NumGreetings); i++) {
               //  var reply = new HelloReply();
-              //  reply.Message = "‚±‚ñ‚É‚¿‚Í " + request.Name + " " + i;
+              //  reply.Message = "ã“ã‚“ã«ã¡ã¯ " + request.Name + " " + i;
               //  await responseStream.WriteAsync(reply);
               //}
             }
@@ -38,7 +38,7 @@ namespace SSE_Example
             await foreach(var request in requestStream.ReadAllAsync()) {
               //for(int i = 0; i < int.Parse(request.NumGreetings); i++) {
               //  var reply = new HelloReply();
-              //  reply.Message = "‚±‚ñ‚É‚¿‚Í " + request.Name + " " + i;
+              //  reply.Message = "ã“ã‚“ã«ã¡ã¯ " + request.Name + " " + i;
               //  await responseStream.WriteAsync(reply);
               //}
             }
