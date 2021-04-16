@@ -20,16 +20,38 @@ namespace SSE_Example
         public async Task SumOfColumn(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
         {
             _logger.LogInformation("SumOfColumn");
+            var parameters = new List<double>();
+            await foreach(var bundled_rows in requestStream.ReadAllAsync()) {
+                foreach(var row in bundled_rows.Rows) {
+                    parameters.Add(row.Duals[0].NumData); // row=[Col1]
+                }
+            }
+            var result = parameters.Sum(); // Col1 + Col1 + ...
+            var response_rows = new BundledRows();
+            var duals = new Row();
+            duals.Duals.Add(new Dual{ NumData = result });
+            response_rows.Rows.Add(duals);
+            await responseStream.WriteAsync(response_rows);
         }
 
         public async Task SumOfRows(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
         {
             _logger.LogInformation("SumOfRows");
+            await foreach(var bundled_rows in requestStream.ReadAllAsync()) {
+                var response_rows = new BundledRows();
+                foreach(var row in bundled_rows.Rows) {
+                    var result = row.Duals.Select(d => d.NumData).Sum(); // row=[Col1,Col2], sum=Col1 + Col2
+                    var duals = new Row();
+                    duals.Duals.Add(new Dual{ NumData = result });
+                    response_rows.Rows.Add(duals);
+                }
+                await responseStream.WriteAsync(response_rows);
+            }
         }
 
         private int GetFunctionId(ServerCallContext context)
         {
-            var entry = context.RequestHeaders.SingleOrDefault(header => header.Key == "qlik-functionrequestheader-bin");
+            var entry = context.RequestHeaders.Single(entry => entry.Key == "qlik-functionrequestheader-bin");
             var header = new FunctionRequestHeader();
             header.MergeFrom(new CodedInputStream(entry.ValueBytes));
             return header.FunctionId;
@@ -37,6 +59,8 @@ namespace SSE_Example
 
         public override async Task ExecuteFunction(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
         {
+            context.ResponseTrailers.Add("qlik-cache", "no-store"); // Disable caching
+            
             var func_id = GetFunctionId(context);
             if(func_id == 0)
                 await SumOfColumn(requestStream, responseStream, context);
@@ -44,11 +68,6 @@ namespace SSE_Example
                 await SumOfRows(requestStream, responseStream, context);
             else
                 throw new RpcException(new Status(StatusCode.Unimplemented, "Method not implemented!"));
-        }
-
-        public override Task EvaluateScript(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
-        {
-            throw new RpcException(new Status(StatusCode.Unimplemented, "Method not implemented!"));
         }
 
         public override Task<Capabilities> GetCapabilities(Empty request, ServerCallContext context)
