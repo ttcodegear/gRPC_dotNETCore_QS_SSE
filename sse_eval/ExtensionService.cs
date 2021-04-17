@@ -8,7 +8,6 @@ using Qlik.Sse;
 using Google.Protobuf;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
-//using Microsoft.CodeAnalysis.Scripting.Hosting;
 
 namespace SSE_Example
 {
@@ -18,6 +17,19 @@ namespace SSE_Example
         public ExtensionService(ILogger<ExtensionService> logger)
         {
             _logger = logger;
+        }
+
+        private ScriptOptions GetScriptOptions()
+        {
+            var opt = ScriptOptions.Default;
+            var mscorlib = typeof(Object).Assembly;
+            var systemCore = typeof(System.Linq.Enumerable).Assembly;
+            var references = new[] { mscorlib, systemCore };
+            opt = opt.AddReferences(references);
+            opt = opt.AddImports("System");
+            opt = opt.AddImports("System.Collections.Generic");
+            opt = opt.AddImports("System.Linq");
+            return opt;
         }
 
         public class ParamModel
@@ -44,7 +56,7 @@ namespace SSE_Example
                             else
                                 script_args.Add(elm.Dual.StrData);
                         }
-                        _logger.LogInformation("args=" + String.Join(",", script_args));
+                        _logger.LogInformation("args=" + string.Join(",", script_args));
                         all_args.Add(script_args);
                     }
                     var all_results = new List<Object>();
@@ -52,20 +64,9 @@ namespace SSE_Example
                         Object result = null;
                         try {
                             var model = new ParamModel { Args = script_args };
-                            var opt = ScriptOptions.Default;
-                            var mscorlib = typeof(Object).Assembly;
-                            var systemCore = typeof(System.Linq.Enumerable).Assembly;
-                            var references = new[] { mscorlib, systemCore };
-                            opt = opt.AddReferences(references);
-                            //using(var interactiveLoader = new InteractiveAssemblyLoader()) {
-                                //foreach(var reference in references)
-                                //    interactiveLoader.RegisterDependency(reference);
-                                opt = opt.AddImports("System");
-                                opt = opt.AddImports("System.Collections.Generic");
-                                opt = opt.AddImports("System.Linq");
-                                var state = CSharpScript.RunAsync(header.Script, opt, model, model.GetType()).Result;
-                                result = state.Variables.Single(v => v.Name == "result").Value;
-                            //}
+                            var opt = GetScriptOptions();
+                            var state = CSharpScript.RunAsync(header.Script, opt, model, model.GetType()).Result;
+                            result = state.Variables.Single(v => v.Name == "result").Value;
                         }
                         catch(Exception ex) {
                             _logger.LogInformation(ex.Message);
@@ -91,20 +92,9 @@ namespace SSE_Example
                 Object result = null;
                 try {
                     var model = new ParamModel { Args = script_args };
-                    var opt = ScriptOptions.Default;
-                    var mscorlib = typeof(Object).Assembly;
-                    var systemCore = typeof(System.Linq.Enumerable).Assembly;
-                    var references = new[] { mscorlib, systemCore };
-                    opt = opt.AddReferences(references);
-                    //using(var interactiveLoader = new InteractiveAssemblyLoader()) {
-                        //foreach(var reference in references)
-                        //    interactiveLoader.RegisterDependency(reference);
-                        opt = opt.AddImports("System");
-                        opt = opt.AddImports("System.Collections.Generic");
-                        opt = opt.AddImports("System.Linq");
-                        var state = CSharpScript.RunAsync(header.Script, opt, model, model.GetType()).Result;
-                        result = state.Variables.Single(v => v.Name == "result").Value;
-                    //}
+                    var opt = GetScriptOptions();
+                    var state = CSharpScript.RunAsync(header.Script, opt, model, model.GetType()).Result;
+                    result = state.Variables.Single(v => v.Name == "result").Value;
                 }
                 catch(Exception ex) {
                     _logger.LogInformation(ex.Message);
@@ -130,27 +120,52 @@ namespace SSE_Example
             _logger.LogInformation("script=" + header.Script);
             // パラメータがあるか否かをチェック
             if( header.Params.Count() > 0 ) {
-                await responseStream.WriteAsync(null);
+                var all_args = new List<Object>();
+                await foreach(var bundled_rows in requestStream.ReadAllAsync()) {
+                    foreach(var row in bundled_rows.Rows) {
+                        var script_args = new List<Object>();
+                        var zip = header.Params.Zip(row.Duals, (p, d) => new { DataType = p.DataType, Dual = d });
+                        foreach(var elm in zip) {
+                            if( elm.DataType == DataType.String || elm.DataType == DataType.Dual )
+                                script_args.Add(elm.Dual.StrData);
+                            else
+                                script_args.Add(elm.Dual.NumData);
+                        }
+                        all_args.Add(script_args);
+                    }
+                }
+                string log_args = "args=|";
+                all_args.ForEach(e => log_args += string.Join(",", (List<Object>)e) + "|");
+                _logger.LogInformation(log_args);
+                Object result = null;
+                try {
+                    var model = new ParamModel { Args = all_args };
+                    var opt = GetScriptOptions();
+                    var state = CSharpScript.RunAsync(header.Script, opt, model, model.GetType()).Result;
+                    result = state.Variables.Single(v => v.Name == "result").Value;
+                }
+                catch(Exception ex) {
+                    _logger.LogInformation(ex.Message);
+                }
+                var response_rows = new BundledRows();
+                var duals = new Row();
+                if(result is string)
+                    duals.Duals.Add(new Dual{ StrData = (string)result });
+                else if(result is double)
+                    duals.Duals.Add(new Dual{ StrData = ((double)result).ToString() });
+                else
+                    duals.Duals.Add(new Dual{ StrData = "" });
+                response_rows.Rows.Add(duals);
+                await responseStream.WriteAsync(response_rows);
             }
             else {
                 var script_args = new List<Object>();
                 Object result = null;
                 try {
                     var model = new ParamModel { Args = script_args };
-                    var opt = ScriptOptions.Default;
-                    var mscorlib = typeof(Object).Assembly;
-                    var systemCore = typeof(System.Linq.Enumerable).Assembly;
-                    var references = new[] { mscorlib, systemCore };
-                    opt = opt.AddReferences(references);
-                    //using(var interactiveLoader = new InteractiveAssemblyLoader()) {
-                        //foreach(var reference in references)
-                        //    interactiveLoader.RegisterDependency(reference);
-                        opt = opt.AddImports("System");
-                        opt = opt.AddImports("System.Collections.Generic");
-                        opt = opt.AddImports("System.Linq");
-                        var state = CSharpScript.RunAsync(header.Script, opt, model, model.GetType()).Result;
-                        result = state.Variables.Single(v => v.Name == "result").Value;
-                    //}
+                    var opt = GetScriptOptions();
+                    var state = CSharpScript.RunAsync(header.Script, opt, model, model.GetType()).Result;
+                    result = state.Variables.Single(v => v.Name == "result").Value;
                 }
                 catch(Exception ex) {
                     _logger.LogInformation(ex.Message);
