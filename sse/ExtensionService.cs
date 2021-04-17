@@ -17,7 +17,7 @@ namespace SSE_Example
             _logger = logger;
         }
 
-        public async Task SumOfColumn(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
+        private async Task SumOfColumn(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
         {
             _logger.LogInformation("SumOfColumn");
             var parameters = new List<double>();
@@ -34,7 +34,7 @@ namespace SSE_Example
             await responseStream.WriteAsync(response_rows);
         }
 
-        public async Task SumOfRows(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
+        private async Task SumOfRows(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
         {
             _logger.LogInformation("SumOfRows");
             await foreach(var bundled_rows in requestStream.ReadAllAsync()) {
@@ -51,6 +51,7 @@ namespace SSE_Example
 
         private int GetFunctionId(ServerCallContext context)
         {
+            // Read gRPC metadata
             var entry = context.RequestHeaders.Single(entry => entry.Key == "qlik-functionrequestheader-bin");
             var header = new FunctionRequestHeader();
             header.MergeFrom(new CodedInputStream(entry.ValueBytes));
