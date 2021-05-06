@@ -233,6 +233,7 @@ namespace SSE_Example
 
         public override async Task EvaluateScript(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
         {
+            _logger.LogInformation("EvaluateScript");
             context.ResponseTrailers.Add("qlik-cache", "no-store"); // Disable caching
             
             // Read gRPC metadata
@@ -250,6 +251,7 @@ namespace SSE_Example
 
         public override Task<Capabilities> GetCapabilities(Empty request, ServerCallContext context)
         {
+            _logger.LogInformation("GetCapabilities");
             var capabilities = new Capabilities();
             capabilities.AllowScript = true;
             capabilities.PluginIdentifier = "Simple SSE Test";
