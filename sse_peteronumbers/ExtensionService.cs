@@ -21,7 +21,7 @@ namespace SSE_Example
         private async Task BigSum(IAsyncStreamReader<BundledRows> requestStream, IServerStreamWriter<BundledRows> responseStream, ServerCallContext context)
         {
             _logger.LogInformation("BigSum");
-            var result = EDecimal.FromString("0");
+            var result = EDecimal.Zero;
             await foreach(var bundled_rows in requestStream.ReadAllAsync()) {
                 foreach(var row in bundled_rows.Rows) {
                     result = result.Add(EDecimal.FromString(row.Duals[0].StrData)); // row=[Col1], Col1 + Col1 + ...
@@ -29,8 +29,8 @@ namespace SSE_Example
             }
             var response_rows = new BundledRows();
             var duals = new Row();
-            _logger.LogInformation(result.ToPlainString());
-            duals.Duals.Add(new Dual{ StrData = result.ToPlainString() });
+            _logger.LogInformation(result.Reduce(null).ToPlainString());
+            duals.Duals.Add(new Dual{ StrData = result.Reduce(null).ToPlainString() });
             response_rows.Rows.Add(duals);
             await responseStream.WriteAsync(response_rows);
         }
@@ -43,8 +43,8 @@ namespace SSE_Example
                 foreach(var row in bundled_rows.Rows) {
                     var result = EDecimal.FromString(row.Duals[0].StrData).Add(EDecimal.FromString(row.Duals[1].StrData)); // row=[Col1,Col2], sum=Col1 + Col2
                     var duals = new Row();
-                    _logger.LogInformation(result.ToPlainString());
-                    duals.Duals.Add(new Dual{ StrData = result.ToPlainString() });
+                    _logger.LogInformation(result.Reduce(null).ToPlainString());
+                    duals.Duals.Add(new Dual{ StrData = result.Reduce(null).ToPlainString() });
                     response_rows.Rows.Add(duals);
                 }
                 await responseStream.WriteAsync(response_rows);
